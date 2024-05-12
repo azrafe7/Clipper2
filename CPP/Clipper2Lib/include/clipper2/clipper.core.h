@@ -664,19 +664,37 @@ namespace Clipper2Lib
     return (x > 0) - (x < 0); 
   }
 
-  inline uint64_t CalcOverflowCarry(uint64_t a, uint64_t b) // #834
+
+  // adapted from https://stackoverflow.com/a/1815371/1158913
+  // ... and since we're only interested in the `carry`, we can avoid some computations
+  inline uint64_t CalcOverflowCarry(uint64_t a, uint64_t b)
   {
-    // given aLo = (a & 0xFFFFFFFF) and
-    // aHi = (a & 0xFFFFFFFF00000000) and similarly with b, then
-    // a * b == (aHi + aLo) * (bHi + bLo)
-    // a * b == (aHi * bHi) + (aHi * bLo) + (aLo * bHi) + (aLo * bLo)
+    uint64_t s0, s1, s2, s3; 
     
     const uint64_t aLo = a & 0xFFFFFFFF;
-    const uint64_t aHi = a >> 32; // this avoids repeating shifts
+    const uint64_t aHiShr = a >> 32;
+
     const uint64_t bLo = b & 0xFFFFFFFF;
-    const uint64_t bHi = b >> 32; 
-    // integer overflow of multiplying the unsigned 64bits a and b ==>
-    return aHi * bHi + ((aHi * bLo) >> 32) + ((bHi * aLo) >> 32);
+    const uint64_t bHiShr = b >> 32;
+
+    uint64_t x = aLo * bLo;
+    // s0 = x & 0xFFFFFFFF;
+    
+    x = aHiShr * bLo + (x >> 32);
+    s1 = x & 0xFFFFFFFF;
+    s2 = x >> 32;
+    
+    x = s1 + aLo * bHiShr;
+    // s1 = x & 0xFFFFFFFF;
+
+    x = s2 + aHiShr * bHiShr + (x >> 32);
+    s2 = x & 0xFFFFFFFF;
+    s3 = x >> 32;
+
+    // uint64_t result = s1 << 32 | s0;
+    uint64_t carry = s3 << 32 | s2;
+
+    return carry;
   }
 
   // returns true if (and only if) a * b == c * d
